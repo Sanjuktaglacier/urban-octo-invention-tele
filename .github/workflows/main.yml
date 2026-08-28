@@ -1,0 +1,78 @@
+name: Create Project
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  create-project:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run create_project.py
+        run: |
+          python create_project.py
+
+      - name: Create ZIP
+        run: |
+          zip -r telegram-saver-bot.zip . \
+            -x ".git/*" \
+            -x ".github/*" \
+            -x "telegram-saver-bot.zip"
+
+      - name: Upload ZIP as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: telegram-saver-bot
+          path: telegram-saver-bot.zip
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Extract ZIP
+        run: |
+          rm -rf extracted
+          mkdir -p extracted
+
+          unzip -o telegram-saver-bot.zip -d extracted
+
+      - name: Copy extracted files to repository root
+        run: |
+          if [ -d "extracted/telegram-saver-bot" ]; then
+            cp -a extracted/telegram-saver-bot/. .
+          else
+            cp -a extracted/. .
+          fi
+
+      - name: Remove temporary folder
+        run: |
+          rm -rf extracted
+          rm -rf telegram-saver-bot
+
+      - name: Commit generated project
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Generate Telegram Saver Bot project"
+          fi
+
+      - name: Push generated project
+        run: |
+          git push
