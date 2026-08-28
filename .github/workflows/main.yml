@@ -1,4 +1,4 @@
-name: Create Project
+name: Extract and Push Telegram Saver Bot
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ permissions:
   contents: write
 
 jobs:
-  create-project:
+  extract-and-push:
     runs-on: ubuntu-latest
 
     steps:
@@ -16,29 +16,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Run create_project.py
-        run: |
-          python create_project.py
-
-      - name: Create ZIP
-        run: |
-          zip -r telegram-saver-bot.zip . \
-            -x ".git/*" \
-            -x ".github/*" \
-            -x "telegram-saver-bot.zip"
-
-      - name: Upload ZIP as Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: telegram-saver-bot
-          path: telegram-saver-bot.zip
-          if-no-files-found: error
-          retention-days: 7
+      - name: Install unzip
+        run: sudo apt-get update && sudo apt-get install -y unzip
 
       - name: Extract ZIP
         run: |
@@ -47,20 +26,32 @@ jobs:
 
           unzip -o telegram-saver-bot.zip -d extracted
 
-      - name: Copy extracted files to repository root
+          echo "=== ZIP CONTENTS ==="
+          find extracted -maxdepth 3 -type f | sort
+
+      - name: Copy project files to repository root
         run: |
           if [ -d "extracted/telegram-saver-bot" ]; then
+            echo "Found telegram-saver-bot folder."
             cp -a extracted/telegram-saver-bot/. .
           else
+            echo "No telegram-saver-bot folder found."
+            echo "Copying ZIP contents directly to repository root."
             cp -a extracted/. .
           fi
 
-      - name: Remove temporary folder
+      - name: Remove temporary files
         run: |
           rm -rf extracted
           rm -rf telegram-saver-bot
 
-      - name: Commit generated project
+      - name: Show final repository
+        run: |
+          echo "=== FINAL FILES ==="
+          find . -maxdepth 3 -type f \
+            ! -path "./.git/*" | sort
+
+      - name: Commit changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -68,11 +59,11 @@ jobs:
           git add -A
 
           if git diff --cached --quiet; then
-            echo "No changes to commit."
+            echo "No changes detected."
           else
-            git commit -m "Generate Telegram Saver Bot project"
+            git commit -m "Extract and deploy Telegram Saver Bot"
           fi
 
-      - name: Push generated project
+      - name: Push changes
         run: |
           git push
